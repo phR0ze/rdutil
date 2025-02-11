@@ -1,0 +1,23 @@
+[package]
+name = "rdutil"
+version = "1.0.0"
+edition = "2021"
+authors = ["phR0ze"]
+license = "MIT OR Apache-2.0"
+description = "RustDesk Utility"
+repository = "https://github.com/phR0ze/rdutil"
+exclude = [
+    "docs",
+    "config",
+    "examples",
+    ".git",
+    ".githooks",
+    ".github",
+    "tests",
+    "benches",
+    "target",
+    ".vscode",
+]
+
+[dependencies]
+sodiumoxide = "0.2"

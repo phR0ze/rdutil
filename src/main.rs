@@ -26,11 +26,18 @@ fn main() {
     let args = std::env::args().collect::<Vec<String>>();
     if args.len() < 3 {
         println!("Usage: {} [COMMAND] <password>", args[0]);
+        println!("Options:");
+        println!("  --id <machine-id>           Alternate machine-id to use for encryption");
         println!("Commands:");
         println!("  encrypt <plaintext>         Encrypt the given password");
         println!("  decrypt <encrypted>         Decrypt the given password");
         std::process::exit(1);
     }
+
+    // Extract id from the args if given
+    let args = args.
+
+    // Process the given command
     let target = &args[1];
     if target == "encrypt" {
         match encrypt(&args[2], PASSWORD_ENC_VER_00) {

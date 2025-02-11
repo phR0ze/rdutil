@@ -23,11 +23,11 @@ const PASSWORD_VERSION_LEN: usize = 2; // 2 characters for version
 const PASSWORD_ENC_VER_00: &str = "00"; // default version is 00
 
 fn main() {
-    let args = std::env::args().collect::<Vec<String>>();
+    let mut args = std::env::args().collect::<Vec<String>>();
     if args.len() < 3 {
-        println!("Usage: {} [COMMAND] <password>", args[0]);
+        println!("Usage: {} [COMMAND] <password> [OPTIONS]", args[0]);
         println!("Options:");
-        println!("  --id <machine-id>           Alternate machine-id to use for encryption");
+        println!("  --key <key>                 Alternate key to use for encryption");
         println!("Commands:");
         println!("  encrypt <plaintext>         Encrypt the given password");
         println!("  decrypt <encrypted>         Decrypt the given password");
@@ -35,12 +35,20 @@ fn main() {
     }
 
     // Extract id from the args if given
-    let args = args.
+    let key = match args.iter().position(|x| *x == "--key") {
+        Some(i) => if args.len() > i + 1 {
+            args.remove(i);
+            Some(args.remove(i))
+        } else {
+            None
+        }
+        None => None
+    }
 
     // Process the given command
     let target = &args[1];
     if target == "encrypt" {
-        match encrypt(&args[2], PASSWORD_ENC_VER_00) {
+        match encrypt(&args[2], PASSWORD_ENC_VER_00, ) {
             Ok(result) => print!("{result}"),
             Err(e) => {
                 eprintln!("Failed to encrypt: {e}");
@@ -62,7 +70,9 @@ fn main() {
 }
 
 /// Encrypt the given plaintext string using a RustDesk version 00 algorithm.
-fn encrypt(plaintext: &str, version: &str) -> Result<String, Box<dyn Error>> {
+///
+/// returns: Result<encrypted string, error>
+fn encrypt(plaintext: &str, version: &str, Option<String> key) -> Result<String, Box<dyn Error>> {
     // Plaintext is too long and cannot be encrypted
     if plaintext.chars().count() > ENCRYPT_MAX_LEN {
         Err("Plaintext is too long and cannot be encrypted")?;
@@ -88,8 +98,8 @@ fn encrypt(plaintext: &str, version: &str) -> Result<String, Box<dyn Error>> {
 
 /// Decrypt the given encrypted string using a RustDesk version 00 algorithm.
 ///
-/// returns: (decrypted string, success)
-pub fn decrypt(encrypted: &str, version: &str) -> Result<String, Box<dyn Error>> {
+/// returns: Result<decrypted string, error>
+pub fn decrypt(encrypted: &str, version: &str, Option<String> key) -> Result<String, Box<dyn Error>> {
     if encrypted.len() > PASSWORD_VERSION_LEN {
         // Extract the version from the encrypted data
         let version = String::from_utf8_lossy(&encrypted[..PASSWORD_VERSION_LEN].as_bytes());

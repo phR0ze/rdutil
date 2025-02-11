@@ -36,19 +36,21 @@ fn main() {
 
     // Extract id from the args if given
     let key = match args.iter().position(|x| *x == "--key") {
-        Some(i) => if args.len() > i + 1 {
-            args.remove(i);
-            Some(args.remove(i))
-        } else {
-            None
+        Some(i) => {
+            if args.len() > i + 1 {
+                args.remove(i);
+                Some(args.remove(i))
+            } else {
+                None
+            }
         }
-        None => None
-    }
+        None => None,
+    };
 
     // Process the given command
     let target = &args[1];
     if target == "encrypt" {
-        match encrypt(&args[2], PASSWORD_ENC_VER_00, ) {
+        match encrypt(&args[2], PASSWORD_ENC_VER_00, key) {
             Ok(result) => print!("{result}"),
             Err(e) => {
                 eprintln!("Failed to encrypt: {e}");
@@ -56,7 +58,7 @@ fn main() {
             }
         }
     } else if target == "decrypt" {
-        match decrypt(&args[2], PASSWORD_ENC_VER_00) {
+        match decrypt(&args[2], PASSWORD_ENC_VER_00, key) {
             Ok(result) => print!("{result}"),
             Err(e) => {
                 eprintln!("Failed to decrypt: {e}");
@@ -72,7 +74,7 @@ fn main() {
 /// Encrypt the given plaintext string using a RustDesk version 00 algorithm.
 ///
 /// returns: Result<encrypted string, error>
-fn encrypt(plaintext: &str, version: &str, Option<String> key) -> Result<String, Box<dyn Error>> {
+fn encrypt(plaintext: &str, version: &str, key: Option<String>) -> Result<String, Box<dyn Error>> {
     // Plaintext is too long and cannot be encrypted
     if plaintext.chars().count() > ENCRYPT_MAX_LEN {
         Err("Plaintext is too long and cannot be encrypted")?;
@@ -81,7 +83,7 @@ fn encrypt(plaintext: &str, version: &str, Option<String> key) -> Result<String,
     // Encrypt the data using the version 00 algorithm
     if version == PASSWORD_ENC_VER_00 {
         // First encrypt the data then append the version to it
-        let encrypted = symmetric(plaintext.as_bytes(), true)?;
+        let encrypted = symmetric(plaintext.as_bytes(), true, key)?;
 
         // Now base64 encode the result using sodiumoxide's custom base64 encoder
         let encoded = base64::encode(&encrypted, base64::Variant::Original);
@@ -99,7 +101,7 @@ fn encrypt(plaintext: &str, version: &str, Option<String> key) -> Result<String,
 /// Decrypt the given encrypted string using a RustDesk version 00 algorithm.
 ///
 /// returns: Result<decrypted string, error>
-pub fn decrypt(encrypted: &str, version: &str, Option<String> key) -> Result<String, Box<dyn Error>> {
+pub fn decrypt(encrypted: &str, version: &str, key: Option<String>) -> Result<String, Box<dyn Error>> {
     if encrypted.len() > PASSWORD_VERSION_LEN {
         // Extract the version from the encrypted data
         let version = String::from_utf8_lossy(&encrypted[..PASSWORD_VERSION_LEN].as_bytes());
@@ -112,7 +114,7 @@ pub fn decrypt(encrypted: &str, version: &str, Option<String> key) -> Result<Str
                 base64::Variant::Original,
             )
             .map_err(|_| "Failed to base64 decode the password")?;
-            return symmetric(&encrypted, false).map(|x| String::from_utf8_lossy(&x).to_string());
+            return symmetric(&encrypted, false, key).map(|x| String::from_utf8_lossy(&x).to_string());
         } else {
             Err(format!(
                 "Unsupported RustDesk password version: {}",
@@ -124,14 +126,17 @@ pub fn decrypt(encrypted: &str, version: &str, Option<String> key) -> Result<Str
     Err(format!("Nothing to decrypt: {}", version))?
 }
 
-pub fn symmetric(data: &[u8], encrypt: bool) -> Result<Vec<u8>, Box<dyn Error>> {
+pub fn symmetric(data: &[u8], encrypt: bool, key: Option<String>) -> Result<Vec<u8>, Box<dyn Error>> {
     use sodiumoxide::crypto::secretbox;
     use std::convert::TryInto;
 
     // Use the machine id as the key base
-    let mut keybuf: Vec<u8> = fs::read_to_string("/etc/machine-id")?.into();
+    let mut keybuf: Vec<u8> = match key {
+        Some(x) => x.as_bytes().to_vec(),
+        None => fs::read_to_string("/etc/machine-id")?.into(),
+    };
 
-    // Ensure the keybuf is only 32 bytes
+    // Ensure the keybuf is 32 bytes, trimming or filling with 0
     keybuf.resize(secretbox::KEYBYTES, 0);
 
     // Now convert the 32 bytes into a usize 32
@@ -161,8 +166,9 @@ mod tests {
     #[test]
     fn test_encrypt() {
         let data = "1ü1111";
-        let encrypted = encrypt(data, PASSWORD_ENC_VER_00).unwrap();
-        let decrypted = decrypt(&encrypted, PASSWORD_ENC_VER_00).unwrap();
+        let key = "foobar".to_string();
+        let encrypted = encrypt(data, PASSWORD_ENC_VER_00, Some(key.clone())).unwrap();
+        let decrypted = decrypt(&encrypted, PASSWORD_ENC_VER_00, Some(key)).unwrap();
 
         println!("data: {data}");
         println!("encrypted: {encrypted}");

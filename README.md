@@ -23,10 +23,12 @@ package work on any machine except where it was created.
 
 ### Usage
 ```
-Usage: ./rdutil [COMMAND] <password>
+Usage: ./rdutil [COMMAND] <password> [OPTIONS]
+Options:
+  --key <key>                 Alternate key to use for encryption
 Commands:
-  encrypt <plaintext>         Encrypt the given password");
-  decrypt <encrypted>         Decrypt the given password");
+  encrypt <plaintext>         Encrypt the given password
+  decrypt <encrypted>         Decrypt the given password
 ```
 
 Since RustDesk stores the password in `~/.config/rustdesk/RustDesk2.toml` as `password`. You can 
